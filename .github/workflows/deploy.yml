@@ -42,8 +42,8 @@ jobs:
           context_path: .
           tag: latest
           repo: dfdsdk/k8s-probes-exporter
-          dh_user: ${{secrets.DH_USERNAME}}
-          dh_token: ${{secrets.DH_TOKEN}}
+          dh_user: ${{secrets.DOCKERHUB_USERNAME}}
+          dh_token: ${{secrets.DOCKERHUB_TOKEN}}
       - uses: ./.github/actions/create_k8s_manifests
         name: Generate k8s manifest
         with:
