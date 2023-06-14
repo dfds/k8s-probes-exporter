@@ -15,6 +15,7 @@ spec:
       labels:
         app: k8s-probes-exporter
     spec:
+      serviceAccountName: k8s-probes-exporter
       containers:
         - image: dfdsdk/k8s-probes-exporter:latest
           name: exporter
