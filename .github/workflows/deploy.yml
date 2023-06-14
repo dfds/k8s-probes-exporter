@@ -49,7 +49,7 @@ jobs:
         name: Generate k8s manifest
         with:
           app_name: k8s-probes-exporter
-          tag: ${{ steps.build_push_container.outputs.sha }}
+          tag: ${{ steps.build_push_container.outputs.sha_short }}
           repo: dfdsdk/k8s-probes-exporter
       - run: 'echo "$KUBECONFIG" > /tmp/kubeconfig'
         shell: bash

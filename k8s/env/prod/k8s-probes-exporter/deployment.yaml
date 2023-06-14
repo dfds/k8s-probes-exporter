@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-        - name: collector
+        - name: exporter
           image: dfdsdk/k8s-probes-exporter:prod
   selector:
     matchLabels:
