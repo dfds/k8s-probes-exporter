@@ -1,0 +1,64 @@
+name: k8s-probes-exporter / build and deploy
+
+on:
+  push:
+    branches:
+      - 'master'
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'Dockerfile'
+      - 'cmds/**'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        default: false
+        required: false
+        type: boolean
+        description: "Trigger build"
+
+concurrency:
+  group: 'k8s-probes-exporter_build'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name:  '01 - Linux'
+    runs-on: [ubuntu-22.04]
+    strategy:
+      matrix:
+        arch: ['x86_64']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - uses: ./.github/actions/build_container
+        name: Build & push container
+        id: build_push_container
+        with:
+          dockerfile_path: Dockerfile
+          context_path: .
+          tag: latest
+          repo: dfdsdk/k8s-probes-exporter
+          dh_user: ${{secrets.DH_USERNAME}}
+          dh_token: ${{secrets.DH_TOKEN}}
+      - uses: ./.github/actions/create_k8s_manifests
+        name: Generate k8s manifest
+        with:
+          app_name: k8s-probes-exporter
+          tag: ${{ steps.build_push_container.outputs.sha }}
+          repo: dfdsdk/k8s-probes-exporter
+      - run: 'echo "$KUBECONFIG" > /tmp/kubeconfig'
+        shell: bash
+        env:
+          KUBECONFIG: ${{secrets.KUBECONFIG}}
+      - uses: azure/setup-kubectl@v3
+        id: install
+      - name: 'Deploy manifest with Kubectl'
+        env:
+          KUBECONFIG: '/tmp/kubeconfig'
+          NAMESPACE: 'monitoring'
+        run: |
+          kubectl apply -f deploy.yaml

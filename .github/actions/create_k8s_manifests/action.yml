@@ -1,0 +1,25 @@
+name: 'Create k8s manifests'
+description: 'Build container image and afterwards push it to AWS ECR'
+inputs:
+  app_name:
+    required: true
+    description: 'Name of data collector'
+  tag:
+    required: true
+    description: 'Image tag'
+  repo:
+    required: true
+    description: 'Repo path'
+runs:
+  using: "composite"
+  steps:
+    - name: Generate k8s manifest
+      id: gen_k8s_manifest
+      run: |
+        sh scripts/update_image_tag.sh
+        cat deploy.yaml
+      shell: bash
+      env:
+        APP_NAME: ${{ inputs.app_name }}
+        REPO: ${{ inputs.repo }}
+        SHA: ${{ inputs.tag }}
