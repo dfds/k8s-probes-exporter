@@ -10,8 +10,13 @@ import (
 	"k8s.io/utils/env"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
+
+// collectMu guards the metric reset + repopulation so a scrape never observes
+// the brief empty window between Reset() and the values being set again.
+var collectMu sync.RWMutex
 
 var (
 	K8sLivenessProbes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -49,7 +54,12 @@ func main() {
 	ctx := context.Background()
 
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
+		metricsHandler := promhttp.Handler()
+		http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+			collectMu.RLock()
+			defer collectMu.RUnlock()
+			metricsHandler.ServeHTTP(w, r)
+		})
 		http.ListenAndServe(":8080", nil)
 	}()
 
@@ -62,6 +72,14 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		// Clear out stale entries (e.g. deleted deployments) before
+		// re-populating with the current set of deployments. The write lock
+		// ensures a scrape never observes the empty window between the reset
+		// and the values being set again.
+		collectMu.Lock()
+		K8sLivenessProbes.Reset()
+		K8sReadinessProbes.Reset()
 
 		for _, deploy := range deployments.Items {
 			for _, container := range deploy.Spec.Template.Spec.Containers {
@@ -79,6 +97,7 @@ func main() {
 				K8sReadinessProbes.With(prometheus.Labels{"namespace": deploy.Namespace, "deployment": deploy.Name, "container": container.Name}).Set(readinessExists)
 			}
 		}
+		collectMu.Unlock()
 
 		time.Sleep(time.Second * 60)
 	}
